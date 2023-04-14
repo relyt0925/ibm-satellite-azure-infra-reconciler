@@ -7,8 +7,25 @@ set -x
 # https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli
 
 source config.env
+resource_group_create(){
+  while true; do
+    export RESOURCE_GROUP_FILE=/tmp/resourcegroupdata.json
+    if ! az group list >$RESOURCE_GROUP_FILE; then
+      sleep 10
+      continue
+    fi
+    if ! grep "${LOCATION_ID}" "$RESOURCE_GROUP_FILE"; then
+      if ! az group create -l westus2 -n "${LOCATION_ID}" --tags locationid=${LOCATION_ID}; then
+        sleep 10
+        continue
+      fi
+    fi
+    break
+  done
+}
+
 core_machinegroup_reconcile() {
-	export INSTANCE_DATA=/tmp/instancedata.txt
+	export INSTANCE_DATA=/tmp/instancedata.json
 	if ! az vm list --resource-group ${LOCATION_ID} --query "[?tags.HOST_LABELS == '${HOST_LABELS}']" >$INSTANCE_DATA; then
 		continue
 	fi
@@ -32,7 +49,7 @@ core_machinegroup_reconcile() {
 		fi
 		NAME_PREFIX="sat"
 		for i in $(seq 1 $NUMBER_TO_SCALE); do
-			az vm create --name "$NAME_PREFIX-$(date +%s)" --resource-group="${LOCATION_ID}" --tags "${TAGS}" --image "${AZURE_IMAGE}" --size "${INSTANCE_TYPE}" --public-ip-sku Standard --data-disk-sizes-gb "${DISK_DEFS}" --zone "${ZONE_SUFFIX}" --custom-data="${IGN_FILE_PATH}"
+			az vm create --name "$NAME_PREFIX-$(date +%s)" --resource-group="${LOCATION_ID}" --tags "${TAGS}" --image "${AZURE_IMAGE}" --size "${INSTANCE_TYPE}" --public-ip-sku Standard --data-disk-sizes-gb "${DISK_DEFS}" --zone "${ZONE_SUFFIX}" --custom-data="${IGN_FILE_PATH}" --generate-ssh-keys
 		done
 	fi
 }
@@ -61,6 +78,7 @@ remove_dead_machines() {
 	done
 }
 
+resource_group_create
 while true; do
 	sleep 10
 	echo "reconcile workload"
