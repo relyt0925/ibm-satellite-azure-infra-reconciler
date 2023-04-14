@@ -49,7 +49,7 @@ core_machinegroup_reconcile() {
 		fi
 		NAME_PREFIX="sat"
 		for i in $(seq 1 $NUMBER_TO_SCALE); do
-			az vm create --name "$NAME_PREFIX-$(date +%s)" --resource-group="${LOCATION_ID}" --tags "${TAGS}" --image "${AZURE_IMAGE}" --size "${INSTANCE_TYPE}" --public-ip-sku Standard --data-disk-sizes-gb "${DISK_DEFS}" --zone "${ZONE_SUFFIX}" --custom-data="${IGN_FILE_PATH}" --generate-ssh-keys
+			az vm create --name "$NAME_PREFIX-$(date +%s)" --resource-group="${LOCATION_ID}" --tags "${TAGS}" --image "${AZURE_IMAGE}" --size "${INSTANCE_TYPE}" --public-ip-sku Standard --data-disk-sizes-gb ${DISK_DEFS} --zone "${ZONE_SUFFIX}" --custom-data="${IGN_FILE_PATH}" --generate-ssh-keys
 		done
 	fi
 }
@@ -69,7 +69,7 @@ remove_dead_machines() {
 				continue
 			fi
 			if grep "$NAME_IN_AZURE" $INSTANCE_DATA_FILE_PATH; then
-				if ! az vm delete --resource-group ${LOCATION_ID} --name ${NAME}; then
+				if ! az vm delete --resource-group ${LOCATION_ID} --name ${NAME} --yes; then
 					continue
 				fi
 			fi
