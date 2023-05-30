@@ -121,7 +121,7 @@ while true; do
 			WORKER_POOL_NAME=$(echo ${FILE} | awk -F '/' '{print $NF}' | awk -F '.' '{print $1}')
 			source $FILE
 			if ! grep $CLUSTERID $SERVICES_DATA_FILE; then
-				if ! bx cs cluster create satellite --name $CLUSTERID --location "$LOCATION_ID" --version 4.11_openshift --operating-system RHCOS; then
+				if ! bx cs cluster create satellite --name $CLUSTERID --location "$LOCATION_ID" --version "$DOWNSTREAM_CLUSTER_OC_VERSION" --operating-system RHCOS; then
 					continue
 				fi
 			fi
