@@ -3,6 +3,6 @@ bx sat location create --name azure-demo-5 --coreos-enabled --managed-from dal -
 bx cs cluster create satellite --name azure-demo-5-d-1 --location azure-demo-5 --operating-system RHCOS --enable-config-admin --version 4.12_openshift
 
 
-bx cs worker-pool create satellite --name odf --cluster azure-demo-5-d-1 --zone westus2-1 --size-per-zone 1 --operating-system RHCOS --label ibm-cloud.kubernetes.io/reconciler-instancetype=Standard_D16as_v5 --label ibm-cloud.kubernetes.io/reconciler-diskdefs=25-100-500 --host-label worker-pool=azure-demo-5-d-1-odf
+bx cs worker-pool create satellite --name odf --cluster azure-demo-5-d-1 --zone westus2-1 --size-per-zone 1 --operating-system RHCOS --label ibm-cloud.kubernetes.io/reconciler-instancetype=Standard_D16as_v5 --label ibm-cloud.kubernetes.io/reconciler-diskdefs=100-500 --host-label worker-pool=azure-demo-5-d-1-odf
 bx cs zone add satellite --cluster azure-demo-5-d-1 --worker-pool odf --zone westus2-2
 bx cs zone add satellite --cluster azure-demo-5-d-1 --worker-pool odf --zone westus2-3
