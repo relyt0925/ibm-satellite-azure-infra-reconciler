@@ -45,7 +45,7 @@ core_machinegroup_reconcile() {
 			IGN_FILE_PATH=$(bx sat host attach --location "$LOCATION_ID" --operating-system "RHCOS" --host-label "$HOST_LABELS" | grep "register-host")
 		fi
 		if [[ "$IGN_FILE_PATH" != *".ign" ]]; then
-			continue
+			return
 		fi
 		NAME_PREFIX="sat"
 		for i in $(seq 1 $NUMBER_TO_SCALE); do
