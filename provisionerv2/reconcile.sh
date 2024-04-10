@@ -7,43 +7,42 @@
 set +x
 source config.env
 set -x
-resource_group_create(){
-  export CP_WORKER_ZONE_FILE=/tmp/cp-worker-zones.txt
-  jq -r '.workerZones[]' "$LOCATION_DATA_FILE" >"$CP_WORKER_ZONE_FILE"
-  REGION=$(cat "$CP_WORKER_ZONE_FILE" | awk 'NR==1{print $1}' | awk -F '-' '{print $1}')
-  while true; do
-    export RESOURCE_GROUP_FILE=/tmp/resourcegroupdata.json
-    if ! az group list >$RESOURCE_GROUP_FILE; then
-      sleep 10
-      continue
-    fi
-    if ! grep "${LOCATION_ID}" "$RESOURCE_GROUP_FILE"; then
-      if ! az group create -l "$REGION" -n "${LOCATION_ID}" --tags locationid=${LOCATION_ID}; then
-        sleep 10
-        continue
-      fi
-    fi
-    break
-  done
+resource_group_create() {
+	export CP_WORKER_ZONE_FILE=/tmp/cp-worker-zones.txt
+	jq -r '.workerZones[]' "$LOCATION_DATA_FILE" >"$CP_WORKER_ZONE_FILE"
+	REGION=$(cat "$CP_WORKER_ZONE_FILE" | awk 'NR==1{print $1}' | awk -F '-' '{print $1}')
+	while true; do
+		export RESOURCE_GROUP_FILE=/tmp/resourcegroupdata.json
+		if ! az group list >$RESOURCE_GROUP_FILE; then
+			sleep 10
+			continue
+		fi
+		if ! grep "${LOCATION_ID}" "$RESOURCE_GROUP_FILE"; then
+			if ! az group create -l "$REGION" -n "${LOCATION_ID}" --tags locationid=${LOCATION_ID}; then
+				sleep 10
+				continue
+			fi
+		fi
+		break
+	done
 }
-
 
 core_machinegroup_reconcile() {
 	export INSTANCE_DATA=/tmp/instancedata.json
-  HOST_LABELS_VAL=$(echo "$HOST_LABELS" | awk -F '=' '{print $2}')
-  WORKER_POOL_WITH_ZONE="${HOST_LABELS_VAL}-$ZONE"
-  TAGS="WORKER_POOL_WITH_ZONE=$WORKER_POOL_WITH_ZONE"
+	HOST_LABELS_VAL=$(echo "$HOST_LABELS" | awk -F '=' '{print $2}')
+	WORKER_POOL_WITH_ZONE="${HOST_LABELS_VAL}-$ZONE"
+	TAGS="WORKER_POOL_WITH_ZONE=$WORKER_POOL_WITH_ZONE"
 	if ! az vm list --resource-group ${LOCATION_ID} --query "[?tags.WORKER_POOL_WITH_ZONE == '${WORKER_POOL_WITH_ZONE}']" >$INSTANCE_DATA; then
 		continue
 	fi
 	TOTAL_INSTANCES=0
-  for row in $(cat "$INSTANCE_DATA" | jq -r '.[] | @base64'); do
-    _jq() {
-      # shellcheck disable=SC2086
-      echo "${row}" | base64 --decode | jq -r ${1}
-    }
-    TOTAL_INSTANCES=$((TOTAL_INSTANCES + 1))
-  done
+	for row in $(cat "$INSTANCE_DATA" | jq -r '.[] | @base64'); do
+		_jq() {
+			# shellcheck disable=SC2086
+			echo "${row}" | base64 --decode | jq -r ${1}
+		}
+		TOTAL_INSTANCES=$((TOTAL_INSTANCES + 1))
+	done
 	if ((COUNT > TOTAL_INSTANCES)); then
 		NUMBER_TO_SCALE=$((COUNT - TOTAL_INSTANCES))
 		if [[ -n "$HOST_LINK_AGENT_ENDPOINT" ]]; then
@@ -119,26 +118,26 @@ reconcile_cluster_wp_nodes() {
 			HOST_LABEL_VALUE=$(_jq '.hostLabels["worker-pool"]')
 			OPERATING_SYS=$(_jq '.operatingSystem')
 			if [[ "$OPERATING_SYS" != "RHCOS" ]]; then
-			  echo "bad operating system"
-			  continue
+				echo "bad operating system"
+				continue
 			fi
 			if [[ "$HOST_LABEL_VALUE" == "null" ]] || [[ "$HOST_LABEL_VALUE" == "" ]]; then
-			  echo "bad host label"
-			  continue
+				echo "bad host label"
+				continue
 			fi
 			export HOST_LABELS="worker-pool=${HOST_LABEL_VALUE}"
 			zones_in_pool=$(_jq '.zones[]')
 			zones_in_pool_file=/tmp/zones-in-pool
 			echo "$zones_in_pool" >"$zones_in_pool_file"
 			for zonerawinfo in $(cat "$zones_in_pool_file" | jq -r '. | @base64'); do
-			  _jq_zonerawinfo() {
-          # shellcheck disable=SC2086
-          echo "${zonerawinfo}" | base64 --decode | jq -r ${1}
-        }
+				_jq_zonerawinfo() {
+					# shellcheck disable=SC2086
+					echo "${zonerawinfo}" | base64 --decode | jq -r ${1}
+				}
 				export ZONE=$(_jq_zonerawinfo '.id')
 				core_machinegroup_reconcile
 				while true; do
-					if ! bx sat host assign --zone "$ZONE"  --location "$LOCATION_ID" --cluster "$CLUSTER_ID" --host-label "zone=$ZONE" --host-label os=RHCOS --host-label "$HOST_LABELS"; then
+					if ! bx sat host assign --zone "$ZONE" --location "$LOCATION_ID" --cluster "$CLUSTER_ID" --host-label "zone=$ZONE" --host-label os=RHCOS --host-label "$HOST_LABELS"; then
 						break
 					fi
 					sleep 5
@@ -146,7 +145,7 @@ reconcile_cluster_wp_nodes() {
 				done
 			done <"$zones_in_pool_file"
 		done
-	done<"$ROKS_CLUSTER_LIST_FILE"
+	done <"$ROKS_CLUSTER_LIST_FILE"
 }
 
 remove_dead_machines() {
@@ -159,12 +158,12 @@ remove_dead_machines() {
 		NAME=$(_jq '.name')
 		if [[ "$HEALTH_STATE" == "reload-required" ]]; then
 			INSTANCE_DATA_FILE_PATH=/tmp/rminstancedata.json
-			if ! aws ec2 describe-instances --output json --filters Name=network-interface.private-dns-name,Values=${NAME}.ec2.internal >"$INSTANCE_DATA_FILE_PATH"; then
+			NAME_IN_AZURE=$(echo "$NAME" | awk -F '.' '{print $1}')
+			if ! az vm list --resource-group ${LOCATION_ID} >$INSTANCE_DATA_FILE_PATH; then
 				continue
 			fi
-			INSTANCE_ID=$(jq -r '.Reservations[0].Instances[0].InstanceId' "$INSTANCE_DATA_FILE_PATH")
-			if [[ -n "$INSTANCE_ID" ]] && [[ "$INSTANCE_ID" != "null" ]]; then
-				if ! aws ec2 terminate-instances --output json --instance-ids "${INSTANCE_ID}" > /dev/null; then
+			if grep "$NAME_IN_AZURE" $INSTANCE_DATA_FILE_PATH; then
+				if ! az vm delete --resource-group ${LOCATION_ID} --name ${NAME} --yes; then
 					continue
 				fi
 			fi
